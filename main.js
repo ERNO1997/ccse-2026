@@ -42,7 +42,7 @@ function renderNavigation() {
 
         let classes = 'whitespace-nowrap py-4 px-4 border-b-2 font-medium text-sm transition-colors duration-200 outline-none ';
         if (isActive) {
-            classes += 'border-blue-500 text-blue-600';
+            classes += 'border-red-600 text-red-600';
         } else {
             classes += 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300';
         }
@@ -89,6 +89,14 @@ function renderContent() {
         examHeader.classList.add('hidden');
         if (tasks[currentTab]) {
             questionsToShow = tasks[currentTab].questions;
+
+            // Add Task Title Header
+            const titleHeader = document.createElement('div');
+            titleHeader.className = 'mb-6 bg-yellow-50 border border-yellow-200 rounded-xl p-4';
+            titleHeader.innerHTML = `
+                <h2 class="text-lg font-semibold text-yellow-900">${tasks[currentTab].title}</h2>
+            `;
+            questionsContainer.appendChild(titleHeader);
         }
     }
 
@@ -153,7 +161,7 @@ function createQuestionCard(question) {
         button.dataset.letter = letter;
 
         button.innerHTML = `
-            <span class="flex-shrink-0 w-6 h-6 rounded-full bg-slate-100 text-slate-500 text-sm font-medium flex items-center justify-center group-hover:bg-white group-hover:shadow-sm transition-colors option-letter">${letter.toUpperCase()}</span>
+            <span class="flex-shrink-0 w-6 h-6 rounded-full bg-slate-100 text-slate-500 text-sm font-medium flex items-center justify-center transition-colors option-letter">${letter.toUpperCase()}</span>
             <span class="text-slate-700 font-normal option-text">${optText}</span>
         `;
 
@@ -166,10 +174,10 @@ function createQuestionCard(question) {
 
     // Explanation (Hidden initially)
     const explanation = document.createElement('div');
-    explanation.className = 'explanation hidden mt-6 p-4 bg-blue-50 rounded-lg border border-blue-100 text-sm text-blue-800';
+    explanation.className = 'explanation hidden mt-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200 text-sm text-yellow-900';
     explanation.innerHTML = `
         <div class="flex items-start gap-3">
-            <svg class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
             <div>
@@ -212,8 +220,8 @@ function handleAnswer(question, selectedLetter, cardElement) {
 
         if (letter === question.a) {
             // Correct Answer - Always Green
-            btn.classList.add('bg-green-50', 'border-green-200', 'ring-1', 'ring-green-500');
-            btn.querySelector('.option-letter').classList.add('bg-green-500', 'text-white');
+            btn.classList.add('bg-green-100', 'border-green-300', 'ring-1', 'ring-green-500');
+            btn.querySelector('.option-letter').classList.add('bg-green-600', 'text-white');
             btn.querySelector('.option-text').classList.add('text-green-900', 'font-medium');
         } else if (letter === selectedLetter && !isCorrect) {
             // Wrong Selection - Red
@@ -234,15 +242,21 @@ function handleAnswer(question, selectedLetter, cardElement) {
 
 // Exam Logic
 function generateExam() {
-    const allQuestions = [];
-    Object.values(tasks).forEach(task => {
-        allQuestions.push(...task.questions);
-    });
+    examQuestions = [];
+    const distribution = { 1: 10, 2: 3, 3: 2, 4: 3, 5: 7 };
 
-    // Shuffle and pick 25
-    examQuestions = allQuestions
-        .sort(() => 0.5 - Math.random())
-        .slice(0, 25);
+    for (const [taskId, count] of Object.entries(distribution)) {
+        if (tasks[taskId]) {
+            const taskQuestions = [...tasks[taskId].questions];
+            const selected = taskQuestions
+                .sort(() => 0.5 - Math.random())
+                .slice(0, count);
+            examQuestions.push(...selected);
+        }
+    }
+
+    // Shuffle the final mix
+    examQuestions.sort(() => 0.5 - Math.random());
 }
 
 // Event Listeners
