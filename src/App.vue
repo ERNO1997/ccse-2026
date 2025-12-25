@@ -272,14 +272,14 @@ watch(currentTab, (newTab) => {
       </div>
 
       <!-- Questions List -->
-      <div v-if="questionsToShow.length > 0" class="space-y-6">
+      <div v-if="questionsToShow.length > 0" class="space-y-4">
         <QuestionCard
           v-for="question in questionsToShow"
           :key="question.id"
           :question="question"
           :selected-answer="getSelectedAnswer(question.id)"
-          :show-feedback="currentTab !== 'exam' || examSubmitted"
-          :show-explanation="currentTab !== 'exam' || examSubmitted"
+          :show-feedback="(currentTab !== 'exam' && !!getSelectedAnswer(question.id)) || (currentTab === 'exam' && examSubmitted)"
+          :show-explanation="(currentTab !== 'exam' && !!getSelectedAnswer(question.id)) || (currentTab === 'exam' && examSubmitted)"
           :is-exam-mode="currentTab === 'exam'"
           @select="(ans) => handleAnswer(question.id, ans)"
         />

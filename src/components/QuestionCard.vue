@@ -101,26 +101,22 @@ const handleClick = (letter: string) => {
 <template>
   <div :id="`q-${question.id}`" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden transition-all hover:shadow-md">
     <!-- Header -->
-    <div class="bg-slate-50 px-6 py-3 border-b border-slate-100 flex justify-between items-center">
+    <div class="bg-slate-50 px-4 py-2 border-b border-slate-100 flex justify-between items-center">
       <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Pregunta {{ question.id }}</span>
-      <div class="flex gap-1">
-        <div class="w-2 h-2 rounded-full bg-red-500"></div>
-        <div class="w-2 h-2 rounded-full bg-yellow-400"></div>
-        <div class="w-2 h-2 rounded-full bg-red-500"></div>
-      </div>
     </div>
 
     <!-- Content -->
-    <div class="p-6">
-      <h3 class="text-lg font-medium text-slate-900 mb-6 leading-relaxed">{{ question.q }}</h3>
+    <div class="p-4">
+      <h3 class="text-base font-medium text-slate-900 mb-3 leading-snug">{{ question.q }}</h3>
 
-      <div class="space-y-3">
+      <div class="space-y-2">
         <button
           v-for="(option, index) in question.options"
           :key="index"
           @click="handleClick(letters[index] || '')"
           :class="getOptionClass(letters[index] || '')"
           :disabled="(!isExamMode && !!selectedAnswer) || (isExamMode && showFeedback)"
+          class="py-2 px-3"
         >
           <span :class="getLetterClass(letters[index] || '')">{{ (letters[index] || '').toUpperCase() }}</span>
           <span :class="getTextClass(letters[index] || '')">{{ option }}</span>
@@ -128,13 +124,13 @@ const handleClick = (letter: string) => {
       </div>
 
       <!-- Explanation -->
-      <div v-if="showExplanation" class="mt-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200 text-sm text-yellow-900 animate-fade-in">
-        <div class="flex items-start gap-3">
-          <svg class="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div v-if="showExplanation" class="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200 text-sm text-yellow-900 animate-fade-in">
+        <div class="flex items-start gap-2">
+          <svg class="w-4 h-4 text-yellow-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
           </svg>
           <div>
-            <span class="font-bold block mb-1">Explicación:</span>
+            <span class="font-bold block mb-0.5">Explicación:</span>
             {{ question.exp }}
           </div>
         </div>

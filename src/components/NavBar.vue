@@ -11,8 +11,8 @@ const emit = defineEmits<{
 
 <template>
   <div class="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200 mb-8">
-    <div class="max-w-4xl mx-auto px-4">
-      <div class="flex overflow-x-auto no-scrollbar py-2 gap-2">
+    <div class="max-w-4xl mx-auto">
+      <div class="flex overflow-x-auto no-scrollbar py-2 gap-2 px-4">
         <button
           v-for="tab in tabs"
           :key="tab.id"
