@@ -1,103 +1,13 @@
 <!doctype html>
-<html lang="es">
-
-<head>
-  <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>App CCSE 2026 Interactiva</title>
-  <link rel="stylesheet" href="./style.css">
-</head>
-
-<body class="bg-slate-50 text-slate-900 font-sans antialiased min-h-screen flex flex-col">
-
-  <!-- Header -->
-  <header class="bg-white shadow-sm sticky top-0 z-50">
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <div class="flex items-center gap-2">
-        <span class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">CCSE
-          2026</span>
-      </div>
-
-      <!-- Search Bar -->
-      <div class="relative hidden sm:block w-64">
-        <input type="text" id="search-input" placeholder="Buscar pregunta o ID..."
-          class="w-full pl-10 pr-4 py-2 rounded-full border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm outline-none">
-        <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor"
-          viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-        </svg>
-      </div>
-
-      <!-- Mobile Search Toggle -->
-      <button id="mobile-search-toggle" class="sm:hidden p-2 text-slate-500 hover:text-blue-600">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-        </svg>
-      </button>
-    </div>
-
-    <!-- Mobile Search Bar (Hidden by default) -->
-    <div id="mobile-search-bar" class="hidden sm:hidden px-4 pb-4 border-t border-slate-100 bg-white">
-      <input type="text" id="mobile-search-input" placeholder="Buscar pregunta o ID..."
-        class="w-full mt-3 pl-4 pr-4 py-2 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none">
-    </div>
-
-    <!-- Navigation Tabs -->
-    <nav class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 overflow-x-auto no-scrollbar">
-      <div class="flex space-x-1 border-b border-slate-200" id="nav-tabs">
-        <!-- Tabs will be injected here -->
-      </div>
-    </nav>
-  </header>
-
-  <!-- Main Content -->
-  <main class="flex-grow max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
-
-    <!-- Exam Mode Header (Hidden by default) -->
-    <div id="exam-header"
-      class="hidden mb-6 bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex items-center justify-between">
-      <div>
-        <h2 class="text-lg font-semibold text-indigo-900">Modo Examen</h2>
-        <p class="text-sm text-indigo-700">25 preguntas aleatorias</p>
-      </div>
-      <button id="regenerate-exam"
-        class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm">
-        Nuevo Test
-      </button>
-    </div>
-
-    <!-- Questions Container -->
-    <div id="questions-container" class="space-y-6">
-      <!-- Questions will be injected here -->
-    </div>
-
-    <!-- Empty State -->
-    <div id="empty-state" class="hidden flex flex-col items-center justify-center py-12 text-center">
-      <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-        <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-        </svg>
-      </div>
-      <h3 class="text-lg font-medium text-slate-900">No se encontraron preguntas</h3>
-      <p class="text-slate-500 mt-1">Intenta con otros términos de búsqueda.</p>
-    </div>
-
-  </main>
-
-  <!-- Footer -->
-  <footer class="bg-white border-t border-slate-200 mt-auto">
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      <p class="text-center text-sm text-slate-500">
-        &copy; 2026 CCSE Interactiva. Material de estudio no oficial.
-      </p>
-    </div>
-  </footer>
-
-  <script type="module" src="/main.js"></script>
-</body>
-
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>temp_vue</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
 </html>
