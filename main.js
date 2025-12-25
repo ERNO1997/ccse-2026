@@ -12,8 +12,9 @@ const navTabs = document.getElementById('nav-tabs');
 const questionsContainer = document.getElementById('questions-container');
 const searchInput = document.getElementById('search-input');
 const mobileSearchInput = document.getElementById('mobile-search-input');
-const mobileSearchToggle = document.getElementById('mobile-search-toggle');
 const mobileSearchBar = document.getElementById('mobile-search-bar');
+const searchContainer = document.querySelector('.relative.hidden.sm\\:block.w-64'); // Desktop search container
+const mobileSearchToggle = document.getElementById('mobile-search-toggle');
 const emptyState = document.getElementById('empty-state');
 const examHeader = document.getElementById('exam-header');
 const regenerateExamBtn = document.getElementById('regenerate-exam');
@@ -87,12 +88,19 @@ function renderContent() {
     questionsContainer.innerHTML = '';
     let questionsToShow = [];
 
-    // Header visibility
+    // Header visibility & Search Bar Toggling
     if (currentTab === 'exam') {
         examHeader.classList.remove('hidden');
         questionsToShow = examQuestions;
+        // Hide Search
+        if (searchContainer) searchContainer.classList.add('invisible');
+        if (mobileSearchToggle) mobileSearchToggle.classList.add('hidden');
     } else {
         examHeader.classList.add('hidden');
+        // Show Search
+        if (searchContainer) searchContainer.classList.remove('invisible');
+        if (mobileSearchToggle) mobileSearchToggle.classList.remove('hidden');
+
         if (tasks[currentTab]) {
             questionsToShow = tasks[currentTab].questions;
 
@@ -113,17 +121,29 @@ function renderContent() {
         const totalCount = examQuestions.length;
 
         const progressHeader = document.createElement('div');
-        progressHeader.className = 'mb-6 bg-white border border-slate-200 rounded-xl p-4 flex justify-between items-center sticky top-20 z-40 shadow-sm';
+        // Adjusted top position to top-16 (header height) + padding to ensure full visibility
+        progressHeader.className = 'mb-6 bg-white border-2 border-red-100 rounded-xl p-4 sticky top-20 z-40 shadow-md';
+
+        const percentage = Math.round((answeredCount / totalCount) * 100);
+
         progressHeader.innerHTML = `
-            <div>
-                <span class="text-sm font-medium text-slate-500">Progreso</span>
-                <div class="text-lg font-bold text-slate-900">${answeredCount} / ${totalCount}</div>
+            <div class="w-full flex flex-col gap-2">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <span class="text-sm font-bold text-red-600 uppercase tracking-wider">Progreso del Examen</span>
+                        <div class="text-2xl font-bold text-slate-900">${answeredCount} <span class="text-slate-400 text-lg">/ ${totalCount}</span></div>
+                    </div>
+                    ${!examSubmitted ? `
+                        <button id="evaluate-btn" class="px-6 py-2 bg-gradient-to-r from-red-600 to-yellow-500 hover:from-red-700 hover:to-yellow-600 text-white font-bold rounded-lg transition-all shadow-sm transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed">
+                            Evaluar
+                        </button>
+                    ` : ''}
+                </div>
+                <!-- Progress Bar -->
+                <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                    <div class="bg-gradient-to-r from-red-500 to-yellow-400 h-2.5 rounded-full transition-all duration-500" style="width: ${percentage}%"></div>
+                </div>
             </div>
-            ${!examSubmitted ? `
-                <button id="evaluate-btn" class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
-                    Evaluar Examen
-                </button>
-            ` : ''}
         `;
         questionsContainer.appendChild(progressHeader);
 
@@ -258,7 +278,7 @@ function createQuestionCard(question) {
                     letterClasses += 'bg-green-600 text-white';
                     textClasses += 'text-green-900 font-medium';
                 } else if (isSelected && letter !== question.a) {
-                    letterClasses += 'bg-red-600 text-white';
+                    letterClasses += 'bg-red-600 text-white'; // Red background for incorrect letter
                     textClasses += 'text-red-900';
                 } else {
                     letterClasses += 'bg-slate-100 text-slate-500 text-slate-700';
@@ -272,6 +292,9 @@ function createQuestionCard(question) {
                 }
             }
         } else {
+            // Study Mode Logic for Letters
+            // For initial render in study mode, no answer is selected yet, so default styling.
+            // The actual styling for correct/incorrect answers is applied in handleAnswer.
             letterClasses += 'bg-slate-100 text-slate-500';
             textClasses += 'text-slate-700';
         }
@@ -366,7 +389,8 @@ function handleAnswer(question, selectedLetter, cardElement) {
             } else if (letter === selectedLetter && !isCorrect) {
                 // Wrong Selection - Red
                 btn.classList.add('bg-red-50', 'border-red-200');
-                btn.querySelector('.option-letter').classList.add('bg-red-500', 'text-white');
+                btn.querySelector('.option-letter').classList.remove('bg-slate-100', 'text-slate-500');
+                btn.querySelector('.option-letter').classList.add('bg-red-600', 'text-white'); // Highlight letter red
                 btn.querySelector('.option-text').classList.add('text-red-900');
             } else {
                 // Others - Dimmed
