@@ -10,6 +10,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: 'auto',
       includeAssets: ['favicon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
       manifest: {
         name: 'CCSE 2026 - Preparación Nacionalidad Española',
@@ -44,6 +45,10 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true
+      },
+      devOptions: {
+        enabled: true,
+        type: 'module'
       }
     })
   ],

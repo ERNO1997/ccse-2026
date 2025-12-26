@@ -12,28 +12,44 @@ const { progress, currentUser, isLoading, recordExamResult, recordQuestionIntera
 
 const deferredPrompt = ref<any>(null);
 const isInstalling = ref(false);
+const isSecure = ref(window.isSecureContext);
 
 onMounted(async () => {
+  if (!isSecure.value && !window.location.hostname.includes('localhost')) {
+    console.warn("This app is running in an insecure context. Firebase Auth and PWA features may not work correctly.");
+  }
   // Handle Redirect Result
   try {
-    await getRedirectResult(auth);
-  } catch (error) {
+    const result = await getRedirectResult(auth);
+    if (result) {
+      console.log("Login successful via redirect");
+    }
+  } catch (error: any) {
     console.error("Redirect login error:", error);
+    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+      alert("Error de login: " + error.message);
+    }
   }
 
   // Handle PWA Install Prompt
   window.addEventListener('beforeinstallprompt', (e) => {
+    console.log('beforeinstallprompt fired');
     e.preventDefault();
     deferredPrompt.value = e;
   });
 
   window.addEventListener('appinstalled', () => {
+    console.log('PWA was installed');
     deferredPrompt.value = null;
     isInstalling.value = false;
   });
 });
 
 const handleLogin = () => {
+  if (!isSecure.value && !window.location.hostname.includes('localhost')) {
+    alert("El login de Google requiere una conexión segura (HTTPS) o usar 'localhost'. Si estás probando en móvil localmente, asegúrate de usar HTTPS.");
+  }
+  
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   if (isMobile) {
     signInWithRedirect(auth, googleProvider);
@@ -45,16 +61,26 @@ const handleLogin = () => {
 const handleLogout = () => signOut(auth);
 
 const handleInstall = async () => {
-  if (!deferredPrompt.value) return;
-  
-  isInstalling.value = true;
-  deferredPrompt.value.prompt();
-  
-  const { outcome } = await deferredPrompt.value.userChoice;
-  if (outcome === 'accepted') {
-    deferredPrompt.value = null;
+  if (!deferredPrompt.value) {
+    alert("La instalación no está disponible en este momento. Asegúrate de usar Chrome en Android o Safari en iOS.");
+    return;
   }
-  isInstalling.value = false;
+  
+  try {
+    isInstalling.value = true;
+    await deferredPrompt.value.prompt();
+    
+    const { outcome } = await deferredPrompt.value.userChoice;
+    console.log(`User response to the install prompt: ${outcome}`);
+    
+    if (outcome === 'accepted') {
+      deferredPrompt.value = null;
+    }
+  } catch (err: any) {
+    alert("Error al instalar: " + err.message);
+  } finally {
+    isInstalling.value = false;
+  }
 };
 
 // Tabs Configuration
@@ -328,6 +354,14 @@ const changeTab = (id: string) => {
 watch(currentTab, (newTab) => {
   if (newTab === 'exam' || newTab === 'cards') {
     mobileSearchVisible.value = false;
+  }
+});
+
+watch(showStatsModal, (isOpen) => {
+  if (isOpen) {
+    document.body.style.overflow = 'hidden';
+  } else {
+    document.body.style.overflow = '';
   }
 });
 </script>
