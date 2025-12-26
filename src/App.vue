@@ -10,14 +10,14 @@ import { onMounted } from 'vue';
 
 const { progress, currentUser, isLoading, recordExamResult, recordQuestionInteraction, getQuestionStats, resetProgress } = useUserProgress();
 
-const APP_VERSION = '1.0.6'; // Increment this to track versions
+const APP_VERSION = '1.0.9'; // Increment this to track versions
 const deferredPrompt = ref<any>(null);
 const isInstalling = ref(false);
 const isSecure = ref(window.isSecureContext);
 
 onMounted(async () => {
   console.log(`App v${APP_VERSION} mounted. Secure context:`, isSecure.value);
-  alert(`App v${APP_VERSION} iniciada en ${window.location.origin}`);
+  alert(`App v${APP_VERSION} iniciada en ${window.location.origin}\nAuthDomain: ${auth.config.authDomain}`);
   
   if (!isSecure.value && !window.location.hostname.includes('localhost')) {
     console.warn("This app is running in an insecure context. Firebase Auth and PWA features may not work correctly.");
@@ -39,16 +39,30 @@ onMounted(async () => {
   });
 });
 
-const handleLogin = () => {
+const handleLogin = async () => {
   if (!isSecure.value && !window.location.hostname.includes('localhost')) {
     alert("El login de Google requiere una conexión segura (HTTPS) o usar 'localhost'. Si estás probando en móvil localmente, asegúrate de usar HTTPS.");
   }
   
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  if (isMobile) {
-    signInWithRedirect(auth, googleProvider);
-  } else {
-    signInWithPopup(auth, googleProvider);
+  try {
+    alert("Iniciando login...");
+    // Try Popup first even on mobile, as it's more reliable if not blocked
+    try {
+      alert("Intentando signInWithPopup...");
+      await signInWithPopup(auth, googleProvider);
+      alert("¡Login con Popup exitoso!");
+    } catch (popupError: any) {
+      console.warn("Popup blocked or failed, falling back to redirect", popupError);
+      if (popupError.code === 'auth/popup-blocked' || popupError.code === 'auth/cancelled-popup-request') {
+        alert("Popup bloqueado o cancelado, intentando Redirect...");
+        await signInWithRedirect(auth, googleProvider);
+      } else {
+        throw popupError;
+      }
+    }
+  } catch (error: any) {
+    console.error("Login error:", error);
+    alert("Error de login: " + error.code + " - " + error.message);
   }
 };
 
