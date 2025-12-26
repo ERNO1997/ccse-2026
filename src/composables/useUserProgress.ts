@@ -50,7 +50,6 @@ watch(progress, (newVal) => {
 // Firebase Auth Listener
 onAuthStateChanged(auth, async (user) => {
     console.log("Auth state changed:", user ? user.email : "null");
-    alert("Auth state changed: " + (user ? user.email : "null"));
     currentUser.value = user;
     if (user) {
         // Logged in: Fetch from Firestore
@@ -71,15 +70,14 @@ onAuthStateChanged(auth, async (user) => {
 import { getRedirectResult } from 'firebase/auth';
 async function handleRedirect() {
     try {
-        alert("Comprobando getRedirectResult...");
         const result = await getRedirectResult(auth);
         if (result) {
-            alert("¡Redirect detectado! Usuario: " + result.user.email);
+            console.log("Redirect detected! User:", result.user.email);
         } else {
             console.log("No redirect result found in useUserProgress");
         }
     } catch (error: any) {
-        alert("Error en redirect (useUserProgress): " + error.code + " - " + error.message);
+        console.error("Redirect error (useUserProgress):", error);
     }
 }
 handleRedirect();

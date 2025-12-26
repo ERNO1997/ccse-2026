@@ -10,18 +10,16 @@ import { onMounted } from 'vue';
 
 const { progress, currentUser, isLoading, recordExamResult, recordQuestionInteraction, getQuestionStats, resetProgress } = useUserProgress();
 
-const APP_VERSION = '1.0.9'; // Increment this to track versions
+const APP_VERSION = '1.1.0';
 const deferredPrompt = ref<any>(null);
 const isInstalling = ref(false);
 const isSecure = ref(window.isSecureContext);
 
 onMounted(async () => {
   console.log(`App v${APP_VERSION} mounted. Secure context:`, isSecure.value);
-  alert(`App v${APP_VERSION} iniciada en ${window.location.origin}\nAuthDomain: ${auth.config.authDomain}`);
   
   if (!isSecure.value && !window.location.hostname.includes('localhost')) {
     console.warn("This app is running in an insecure context. Firebase Auth and PWA features may not work correctly.");
-    alert("Contexto no seguro detectado. El login y PWA podrían no funcionar.");
   }
 
   // Handle PWA Install Prompt
@@ -40,21 +38,13 @@ onMounted(async () => {
 });
 
 const handleLogin = async () => {
-  if (!isSecure.value && !window.location.hostname.includes('localhost')) {
-    alert("El login de Google requiere una conexión segura (HTTPS) o usar 'localhost'. Si estás probando en móvil localmente, asegúrate de usar HTTPS.");
-  }
-  
   try {
-    alert("Iniciando login...");
     // Try Popup first even on mobile, as it's more reliable if not blocked
     try {
-      alert("Intentando signInWithPopup...");
       await signInWithPopup(auth, googleProvider);
-      alert("¡Login con Popup exitoso!");
     } catch (popupError: any) {
       console.warn("Popup blocked or failed, falling back to redirect", popupError);
       if (popupError.code === 'auth/popup-blocked' || popupError.code === 'auth/cancelled-popup-request') {
-        alert("Popup bloqueado o cancelado, intentando Redirect...");
         await signInWithRedirect(auth, googleProvider);
       } else {
         throw popupError;
@@ -62,71 +52,30 @@ const handleLogin = async () => {
     }
   } catch (error: any) {
     console.error("Login error:", error);
-    alert("Error de login: " + error.code + " - " + error.message);
   }
 };
 
 const handleLogout = () => signOut(auth);
 
 const handleInstall = async () => {
-  if (!deferredPrompt.value) {
-    alert("La instalación no está disponible en este momento. Asegúrate de cumplir los requisitos de PWA y usar un navegador compatible (Chrome en Android, Safari en iOS).");
-    return;
-  }
+  if (!deferredPrompt.value) return;
   
   try {
     isInstalling.value = true;
-    console.log('Triggering PWA install prompt...');
-    
-    // Some browsers might not support .prompt() or might behave unexpectedly
     if (typeof deferredPrompt.value.prompt !== 'function') {
       throw new Error("El navegador no soporta la función de instalación programática.");
     }
 
     await deferredPrompt.value.prompt();
-    
-    // Wait for the user to respond to the prompt
     const choiceResult = await deferredPrompt.value.userChoice;
-    console.log(`User response to the install prompt: ${choiceResult.outcome}`);
     
     if (choiceResult.outcome === 'accepted') {
-      console.log('User accepted the install prompt');
       deferredPrompt.value = null;
-    } else {
-      console.log('User dismissed the install prompt');
     }
   } catch (err: any) {
     console.error("Installation error:", err);
-    alert("Error al intentar instalar: " + (err.message || "Error desconocido"));
   } finally {
     isInstalling.value = false;
-  }
-};
-
-const handleForceUpdate = () => {
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(registrations => {
-      for (let registration of registrations) {
-        registration.unregister();
-      }
-      window.location.reload();
-    });
-  } else {
-    window.location.reload();
-  }
-};
-
-const handleDebugAuth = async () => {
-  try {
-    alert("Iniciando revisión manual de Auth...");
-    const result = await getRedirectResult(auth);
-    if (result) {
-      alert("¡Resultado manual encontrado! " + result.user.email);
-    } else {
-      alert("No hay resultado de redirect manual. Usuario actual: " + (auth.currentUser ? auth.currentUser.email : "Ninguno"));
-    }
-  } catch (err: any) {
-    alert("Error en revisión manual: " + err.message);
   }
 };
 
@@ -687,28 +636,12 @@ watch(showStatsModal, (isOpen) => {
             </svg>
             {{ isInstalling ? 'Instalando...' : 'Instalar App' }}
           </button>
-
-          <!-- Force Update / Version -->
-          <div class="flex items-center gap-3">
-            <span class="text-[10px] font-mono text-slate-400">v{{ APP_VERSION }}</span>
-            <button 
-              @click="handleForceUpdate"
-              class="text-[10px] text-slate-400 hover:text-slate-600 underline cursor-pointer"
-              title="Forzar actualización de la App"
-            >
-              Actualizar App
-            </button>
-            <button 
-              @click="handleDebugAuth"
-              class="text-[10px] text-slate-400 hover:text-slate-600 underline cursor-pointer"
-              title="Revisar estado de Login"
-            >
-              Revisar Login
-            </button>
-          </div>
         </div>
 
-        <p class="text-xs text-slate-600 italic">Aviso: Este es un material de estudio independiente y no oficial. Las preguntas corresponden al temario oficial del 2026.</p>
+        <div class="flex flex-col md:flex-row items-center justify-center gap-2 md:gap-4">
+          <p class="text-xs text-slate-600 italic">Aviso: Este es un material de estudio independiente y no oficial. Las preguntas corresponden al temario oficial del 2026.</p>
+          <span class="text-[10px] font-mono text-slate-400">v{{ APP_VERSION }}</span>
+        </div>
       </div>
     </footer>
 
