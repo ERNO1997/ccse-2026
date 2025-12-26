@@ -15,14 +15,19 @@ const isInstalling = ref(false);
 const isSecure = ref(window.isSecureContext);
 
 onMounted(async () => {
+  console.log("App mounted. Secure context:", isSecure.value);
   if (!isSecure.value && !window.location.hostname.includes('localhost')) {
     console.warn("This app is running in an insecure context. Firebase Auth and PWA features may not work correctly.");
+    alert("Contexto no seguro detectado. El login y PWA podrían no funcionar.");
   }
   // Handle Redirect Result
   try {
     const result = await getRedirectResult(auth);
     if (result) {
-      console.log("Login successful via redirect");
+      console.log("Login successful via redirect", result.user.email);
+      alert("Login exitoso vía redirect: " + result.user.email);
+    } else {
+      console.log("No redirect result found");
     }
   } catch (error: any) {
     console.error("Redirect login error:", error);
@@ -36,6 +41,7 @@ onMounted(async () => {
   // Handle PWA Install Prompt
   window.addEventListener('beforeinstallprompt', (e) => {
     console.log('beforeinstallprompt fired');
+    // alert('beforeinstallprompt fired'); // Too intrusive for production, but good for debugging
     e.preventDefault();
     deferredPrompt.value = e;
   });
