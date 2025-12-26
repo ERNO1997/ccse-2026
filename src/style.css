@@ -26,16 +26,3 @@
 .animate-fade-in {
   animation: fadeIn 0.3s ease-out forwards;
 }
-
-/* Hover effects only for mouse users */
-@media (hover: hover) {
-  .group\/fav:hover svg {
-    color: #ef4444;
-    /* text-red-500 */
-  }
-
-  .group\/fav:hover svg.text-red-500 {
-    color: #dc2626;
-    /* text-red-600 */
-  }
-}

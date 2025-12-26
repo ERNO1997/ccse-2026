@@ -113,8 +113,7 @@ const handleClick = (letter: string) => {
       </div>
       <button 
         @click.stop="toggleFavorite(question.id)" 
-        class="transition-colors focus:outline-none cursor-pointer group/fav"
-        title="Guardar como favorita"
+        class="focus:outline-none cursor-pointer"
       >
         <svg 
           class="w-5 h-5 transition-colors" 

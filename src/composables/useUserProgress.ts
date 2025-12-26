@@ -58,17 +58,31 @@ onAuthStateChanged(auth, async (user) => {
         const docSnap = await getDoc(userDoc);
 
         if (docSnap.exists()) {
-            // Merge or overwrite? User said "instead of local storage", so let's overwrite local with remote
-            // But maybe merge favorites to be safe?
             const remoteData = docSnap.data() as UserProgress;
             progress.value = remoteData;
         } else {
-            // New user: Save current local progress to Firestore
             await setDoc(userDoc, progress.value);
         }
     }
     isLoading.value = false;
 });
+
+// Handle Redirect Result globally
+import { getRedirectResult } from 'firebase/auth';
+async function handleRedirect() {
+    try {
+        alert("Comprobando getRedirectResult...");
+        const result = await getRedirectResult(auth);
+        if (result) {
+            alert("¡Redirect detectado! Usuario: " + result.user.email);
+        } else {
+            console.log("No redirect result found in useUserProgress");
+        }
+    } catch (error: any) {
+        alert("Error en redirect (useUserProgress): " + error.code + " - " + error.message);
+    }
+}
+handleRedirect();
 
 export function useUserProgress() {
     // Actions

@@ -23,25 +23,6 @@ onMounted(async () => {
     console.warn("This app is running in an insecure context. Firebase Auth and PWA features may not work correctly.");
     alert("Contexto no seguro detectado. El login y PWA podrían no funcionar.");
   }
-  // Handle Redirect Result
-  try {
-    const result = await getRedirectResult(auth);
-    if (result) {
-      console.log("Login successful via redirect", result.user.email);
-      alert("Login exitoso vía redirect: " + result.user.email);
-    } else {
-      console.log("No redirect result found");
-      // alert("No se encontró resultado de redirect (esto es normal si no acabas de volver de Google)");
-    }
-  } catch (error: any) {
-    console.error("Redirect login error:", error);
-    alert("Error en getRedirectResult: " + error.code + " - " + error.message);
-    if (error.code === 'auth/unauthorized-domain') {
-      alert("Error de Firebase: Dominio no autorizado. Debes añadir este dominio en la consola de Firebase (Authentication > Settings > Authorized domains).");
-    } else if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-      alert("Error de login: " + error.message);
-    }
-  }
 
   // Handle PWA Install Prompt
   window.addEventListener('beforeinstallprompt', (e) => {
@@ -118,6 +99,20 @@ const handleForceUpdate = () => {
     });
   } else {
     window.location.reload();
+  }
+};
+
+const handleDebugAuth = async () => {
+  try {
+    alert("Iniciando revisión manual de Auth...");
+    const result = await getRedirectResult(auth);
+    if (result) {
+      alert("¡Resultado manual encontrado! " + result.user.email);
+    } else {
+      alert("No hay resultado de redirect manual. Usuario actual: " + (auth.currentUser ? auth.currentUser.email : "Ninguno"));
+    }
+  } catch (err: any) {
+    alert("Error en revisión manual: " + err.message);
   }
 };
 
@@ -688,6 +683,13 @@ watch(showStatsModal, (isOpen) => {
               title="Forzar actualización de la App"
             >
               Actualizar App
+            </button>
+            <button 
+              @click="handleDebugAuth"
+              class="text-[10px] text-slate-400 hover:text-slate-600 underline cursor-pointer"
+              title="Revisar estado de Login"
+            >
+              Revisar Login
             </button>
           </div>
         </div>
