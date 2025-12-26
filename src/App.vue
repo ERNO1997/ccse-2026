@@ -6,7 +6,7 @@ import QuestionCard from './components/QuestionCard.vue';
 import NavBar from './components/NavBar.vue';
 import { useUserProgress } from './composables/useUserProgress';
 
-const { progress, recordExamResult, recordQuestionInteraction, getQuestionStats } = useUserProgress();
+const { progress, recordExamResult, recordQuestionInteraction, getQuestionStats, resetProgress } = useUserProgress();
 
 // Tabs Configuration
 const tabs = [
@@ -234,6 +234,21 @@ const evaluateExam = () => {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
+const handleReset = () => {
+  if (confirm('¿Estás seguro de que quieres borrar todas tus estadísticas y favoritos? Esta acción no se puede deshacer.')) {
+    resetProgress();
+    showStatsModal.value = false;
+    // Reset local session state too
+    examQuestions.value = [];
+    examAnswers.value = {};
+    examSubmitted.value = false;
+    studyAnswers.value = {};
+    flashcardQuestion.value = null;
+    flashcardAnswered.value = false;
+    alert('Estadísticas reiniciadas correctamente.');
+  }
+};
+
 const changeTab = (id: string) => {
   currentTab.value = id;
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -255,7 +270,7 @@ watch(currentTab, (newTab) => {
 <template>
   <div class="min-h-screen bg-slate-50 font-sans text-slate-900">
     <!-- Header -->
-    <header class="bg-gradient-to-r from-red-600 to-red-700 text-white shadow-xl sticky top-0 z-50">
+    <header class="bg-gradient-to-r from-red-600 to-red-700 text-white shadow-xl z-40">
       <div class="max-w-5xl mx-auto px-4 py-4 md:py-6">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div class="flex items-center gap-3">
@@ -267,6 +282,7 @@ watch(currentTab, (newTab) => {
             <div>
               <h1 class="text-2xl md:text-3xl font-black tracking-tighter uppercase">CCSE <span class="text-yellow-400">2026</span></h1>
               <p class="text-red-50 font-medium opacity-90">Preparación para la Nacionalidad Española</p>
+              <p class="text-[10px] text-yellow-200/80 font-bold uppercase tracking-widest mt-0.5">Material de estudio no oficial • Preguntas oficiales 2026</p>
             </div>
           </div>
           
@@ -424,8 +440,9 @@ watch(currentTab, (newTab) => {
     <!-- Footer -->
     <footer class="bg-slate-900 text-slate-400 py-12 mt-12">
       <div class="max-w-4xl mx-auto px-4 text-center">
-        <p class="mb-4">CCSE 2026 Interactive App</p>
-        <p class="text-sm text-slate-600">Diseñado para ayudar en la preparación de la prueba de conocimientos constitucionales y socioculturales de España.</p>
+        <p class="mb-4 font-bold text-slate-200">CCSE 2026 Interactive App</p>
+        <p class="text-sm text-slate-500 mb-2">Diseñado para ayudar en la preparación de la prueba de conocimientos constitucionales y socioculturales de España.</p>
+        <p class="text-xs text-slate-600 italic">Aviso: Este es un material de estudio independiente y no oficial. Las preguntas corresponden al temario oficial del 2026.</p>
       </div>
     </footer>
 
@@ -478,8 +495,17 @@ watch(currentTab, (newTab) => {
             </div>
           </div>
         </div>
-        <div class="bg-slate-50 px-6 py-4 border-t border-slate-100 text-center">
-          <p class="text-xs text-slate-500">Tus datos se guardan automáticamente en este dispositivo.</p>
+        <div class="bg-slate-50 px-6 py-4 border-t border-slate-100 flex flex-col gap-3">
+          <p class="text-xs text-slate-500 text-center">Tus datos se guardan automáticamente en este dispositivo.</p>
+          <button 
+            @click="handleReset"
+            class="w-full py-2.5 bg-red-50 text-red-600 hover:bg-red-100 font-bold rounded-xl transition-colors text-sm flex items-center justify-center gap-2 cursor-pointer border border-red-200"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+            </svg>
+            Borrar todos los datos
+          </button>
         </div>
       </div>
     </div>

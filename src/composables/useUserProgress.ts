@@ -73,6 +73,10 @@ export function useUserProgress() {
         return progress.value.questionHistory[questionId] || { seen: 0, incorrect: 0 };
     };
 
+    const resetProgress = () => {
+        progress.value = JSON.parse(JSON.stringify(defaultProgress));
+    };
+
     return {
         progress,
         toggleFavorite,
@@ -80,5 +84,6 @@ export function useUserProgress() {
         recordExamResult,
         recordQuestionInteraction,
         getQuestionStats,
+        resetProgress,
     };
 }
