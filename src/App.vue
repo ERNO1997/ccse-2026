@@ -4,6 +4,7 @@ import { tasks } from './data/questions';
 import type { Question } from './types';
 import QuestionCard from './components/QuestionCard.vue';
 import NavBar from './components/NavBar.vue';
+import { useUserProgress } from './composables/useUserProgress';
 
 // State
 const currentTab = ref('1');
@@ -12,6 +13,9 @@ const examQuestions = ref<Question[]>([]);
 const examAnswers = ref<Record<number, string>>({});
 const examSubmitted = ref(false);
 const mobileSearchVisible = ref(false);
+const showStatsModal = ref(false);
+
+const { progress, recordExamResult, recordQuestionInteraction } = useUserProgress();
 
 // Tabs Configuration
 const tabs = [
@@ -20,13 +24,15 @@ const tabs = [
   { id: '3', label: 'Tarea 3' },
   { id: '4', label: 'Tarea 4' },
   { id: '5', label: 'Tarea 5' },
+  { id: 'favorites', label: 'Favoritas' },
   { id: 'exam', label: 'Modo Examen' }
 ];
 
 // Computed
 const currentTaskTitle = computed(() => {
   if (currentTab.value === 'exam') return 'Examen Oficial (Simulación)';
-  return tasks[currentTab.value]?.title || '';
+  if (currentTab.value === 'favorites') return 'Mis Preguntas Favoritas';
+  return tasks[parseInt(currentTab.value)]?.title || '';
 });
 
 const questionsToShow = computed(() => {
@@ -34,8 +40,12 @@ const questionsToShow = computed(() => {
 
   if (currentTab.value === 'exam') {
     questions = examQuestions.value;
+  } else if (currentTab.value === 'favorites') {
+    // Gather all questions
+    const allQuestions = Object.values(tasks).flatMap(t => t.questions);
+    questions = allQuestions.filter(q => progress.value.favorites.includes(q.id));
   } else {
-    questions = tasks[currentTab.value]?.questions || [];
+    questions = tasks[parseInt(currentTab.value)]?.questions || [];
   }
 
   if (searchQuery.value && currentTab.value !== 'exam') {
@@ -79,16 +89,29 @@ const generateExam = () => {
     const task = tasks[taskId];
     if (!task) return;
 
-    const taskQuestions = [...task.questions];
-    // Shuffle task questions
-    for (let i = taskQuestions.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      const temp = taskQuestions[i];
-      taskQuestions[i] = taskQuestions[j]!;
-      taskQuestions[j] = temp!;
-    }
-    selectedQuestions.push(...taskQuestions.slice(0, count));
+    // Smart Selection: Prioritize unseen or incorrect questions
+    // Weight: Unseen (3), Incorrect (2), Correct (1)
+    const weightedQuestions = task.questions.map(q => {
+      const stats = progress.value.questionHistory[q.id];
+      let weight = 3; // Default (Unseen)
+      if (stats) {
+        if (stats.incorrect > 0) weight = 2; // Has errors
+        else weight = 1; // Seen and correct
+      }
+      return { q, weight, random: Math.random() };
+    });
+
+    // Sort by weight (desc) then random
+    weightedQuestions.sort((a, b) => {
+      if (a.weight !== b.weight) return b.weight - a.weight;
+      return a.random - b.random;
+    });
+
+    selectedQuestions.push(...weightedQuestions.slice(0, count).map(wq => wq.q));
   });
+
+  // Shuffle final selection to mix tasks (optional, but requested order was by task, so we keep order)
+  // Actually, user requested "ordered by task", so we append in order.
 
   // Reset state
   examQuestions.value = selectedQuestions;
@@ -105,11 +128,7 @@ const handleAnswer = (questionId: number, answer: string) => {
       examAnswers.value = { ...examAnswers.value, [questionId]: answer };
     }
   } else {
-    // Study mode: Store answer locally if needed, but QuestionCard handles immediate feedback logic
-    // We can use a reactive map for study mode answers if we want persistence within session
-    // For now, QuestionCard props handle it. 
-    // Wait, QuestionCard needs 'selectedAnswer' prop.
-    // We need to store study mode answers too to pass them back.
+    // Study mode
     if (!studyAnswers.value[currentTab.value]) {
       studyAnswers.value = {
         ...studyAnswers.value,
@@ -117,8 +136,30 @@ const handleAnswer = (questionId: number, answer: string) => {
       };
     }
     
-    // Create a new object to trigger reactivity if needed, though nested reactivity should work with ref
     const currentTaskAnswers = studyAnswers.value[currentTab.value] || {};
+    // Only record if not already answered correctly (to avoid spamming stats)
+    // Or just record every interaction. Let's record every first attempt in a session?
+    // User wants to track errors.
+    
+    // Check if this is a new answer for this session/view
+    if (!currentTaskAnswers[questionId]) {
+       // Find question to check correctness
+       const taskId = parseInt(currentTab.value);
+       const question = !isNaN(taskId) ? tasks[taskId]?.questions.find(q => q.id === questionId) : undefined;
+       
+       // For favorites tab, we need to search in all tasks
+       if (currentTab.value === 'favorites' && !question) {
+          const allQuestions = Object.values(tasks).flatMap(t => t.questions);
+          const found = allQuestions.find(q => q.id === questionId);
+          if (found && answer === found.a) {
+             recordQuestionInteraction(questionId, true);
+          }
+       } else if (question) {
+         const isCorrect = answer === question.a;
+         recordQuestionInteraction(questionId, isCorrect);
+       }
+    }
+
     currentTaskAnswers[questionId] = answer;
     studyAnswers.value[currentTab.value] = currentTaskAnswers;
   }
@@ -141,6 +182,23 @@ const evaluateExam = () => {
       return;
     }
   }
+  
+  // Record results
+  const score = examQuestions.value.reduce((acc, q) => {
+    const answer = examAnswers.value[q.id];
+    const isCorrect = answer === q.a;
+    
+    // Record interaction for each question
+    if (answer) {
+      recordQuestionInteraction(q.id, isCorrect);
+    }
+    
+    return isCorrect ? acc + 1 : acc;
+  }, 0);
+
+  const passed = score >= 15;
+  recordExamResult(passed, score, 25);
+
   examSubmitted.value = true;
   window.scrollTo({ top: 0, behavior: 'smooth' });
 };
@@ -173,6 +231,18 @@ watch(currentTab, (newTab) => {
             <p class="text-red-50 font-medium opacity-90">Preparación para la Nacionalidad Española</p>
           </div>
           
+          <!-- Stats Button -->
+          <button 
+            @click="showStatsModal = true"
+            class="p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors text-white flex items-center gap-2 px-4"
+            title="Ver Estadísticas"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+            </svg>
+            <span class="hidden md:inline font-medium">Estadísticas</span>
+          </button>
+
           <!-- Search Bar (Desktop) -->
           <div v-if="currentTab !== 'exam'" class="hidden md:block w-full md:w-auto relative group">
             <input 
@@ -305,5 +375,60 @@ watch(currentTab, (newTab) => {
         <p class="text-sm text-slate-600">Diseñado para ayudar en la preparación de la prueba de conocimientos constitucionales y socioculturales de España.</p>
       </div>
     </footer>
+
+    <!-- Stats Modal -->
+    <div v-if="showStatsModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div class="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+          <h3 class="text-lg font-bold text-slate-800">Estadísticas de Progreso</h3>
+          <button @click="showStatsModal = false" class="text-slate-400 hover:text-slate-600">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+        <div class="p-6 space-y-6">
+          <!-- Exam Stats -->
+          <div class="grid grid-cols-2 gap-4">
+            <div class="bg-blue-50 p-4 rounded-xl text-center">
+              <div class="text-3xl font-bold text-blue-600">{{ progress.stats.examsTaken }}</div>
+              <div class="text-xs font-medium text-blue-800 uppercase tracking-wide mt-1">Exámenes</div>
+            </div>
+            <div class="bg-green-50 p-4 rounded-xl text-center">
+              <div class="text-3xl font-bold text-green-600">{{ progress.stats.examsPassed }}</div>
+              <div class="text-xs font-medium text-green-800 uppercase tracking-wide mt-1">Aprobados</div>
+            </div>
+          </div>
+
+          <!-- General Stats -->
+          <div class="space-y-4">
+            <div class="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
+              <span class="text-slate-600">Preguntas Respondidas</span>
+              <span class="font-bold text-slate-900">{{ progress.stats.totalQuestionsAnswered }}</span>
+            </div>
+            <div class="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
+              <span class="text-slate-600">Aciertos Totales</span>
+              <span class="font-bold text-slate-900">{{ progress.stats.totalCorrect }}</span>
+            </div>
+            <div class="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
+              <span class="text-slate-600">Tasa de Acierto</span>
+              <span class="font-bold text-slate-900">
+                {{ progress.stats.totalQuestionsAnswered > 0 ? Math.round((progress.stats.totalCorrect / progress.stats.totalQuestionsAnswered) * 100) : 0 }}%
+              </span>
+            </div>
+             <div class="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
+              <span class="text-slate-600">Preguntas Favoritas</span>
+              <span class="font-bold text-red-500 flex items-center gap-1">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                {{ progress.favorites.length }}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="bg-slate-50 px-6 py-4 border-t border-slate-100 text-center">
+          <p class="text-xs text-slate-500">Tus datos se guardan automáticamente en este dispositivo.</p>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
