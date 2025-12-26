@@ -26,7 +26,9 @@ onMounted(async () => {
     }
   } catch (error: any) {
     console.error("Redirect login error:", error);
-    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+    if (error.code === 'auth/unauthorized-domain') {
+      alert("Error de Firebase: Dominio no autorizado. Debes añadir este dominio en la consola de Firebase (Authentication > Settings > Authorized domains).");
+    } else if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
       alert("Error de login: " + error.message);
     }
   }
@@ -62,22 +64,34 @@ const handleLogout = () => signOut(auth);
 
 const handleInstall = async () => {
   if (!deferredPrompt.value) {
-    alert("La instalación no está disponible en este momento. Asegúrate de usar Chrome en Android o Safari en iOS.");
+    alert("La instalación no está disponible en este momento. Asegúrate de cumplir los requisitos de PWA y usar un navegador compatible (Chrome en Android, Safari en iOS).");
     return;
   }
   
   try {
     isInstalling.value = true;
+    console.log('Triggering PWA install prompt...');
+    
+    // Some browsers might not support .prompt() or might behave unexpectedly
+    if (typeof deferredPrompt.value.prompt !== 'function') {
+      throw new Error("El navegador no soporta la función de instalación programática.");
+    }
+
     await deferredPrompt.value.prompt();
     
-    const { outcome } = await deferredPrompt.value.userChoice;
-    console.log(`User response to the install prompt: ${outcome}`);
+    // Wait for the user to respond to the prompt
+    const choiceResult = await deferredPrompt.value.userChoice;
+    console.log(`User response to the install prompt: ${choiceResult.outcome}`);
     
-    if (outcome === 'accepted') {
+    if (choiceResult.outcome === 'accepted') {
+      console.log('User accepted the install prompt');
       deferredPrompt.value = null;
+    } else {
+      console.log('User dismissed the install prompt');
     }
   } catch (err: any) {
-    alert("Error al instalar: " + err.message);
+    console.error("Installation error:", err);
+    alert("Error al intentar instalar: " + (err.message || "Error desconocido"));
   } finally {
     isInstalling.value = false;
   }
