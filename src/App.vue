@@ -6,16 +6,7 @@ import QuestionCard from './components/QuestionCard.vue';
 import NavBar from './components/NavBar.vue';
 import { useUserProgress } from './composables/useUserProgress';
 
-// State
-const currentTab = ref('1');
-const searchQuery = ref('');
-const examQuestions = ref<Question[]>([]);
-const examAnswers = ref<Record<number, string>>({});
-const examSubmitted = ref(false);
-const mobileSearchVisible = ref(false);
-const showStatsModal = ref(false);
-
-const { progress, recordExamResult, recordQuestionInteraction } = useUserProgress();
+const { progress, recordExamResult, recordQuestionInteraction, getQuestionStats } = useUserProgress();
 
 // Tabs Configuration
 const tabs = [
@@ -25,13 +16,34 @@ const tabs = [
   { id: '4', label: 'Tarea 4' },
   { id: '5', label: 'Tarea 5' },
   { id: 'favorites', label: 'Favoritas' },
+  { id: 'cards', label: 'Tarjetas' },
   { id: 'exam', label: 'Modo Examen' }
 ];
+
+// State
+const currentTab = ref('1');
+const searchQuery = ref('');
+const mobileSearchVisible = ref(false);
+const showStatsModal = ref(false);
+
+// Exam State
+const examQuestions = ref<Question[]>([]);
+const examAnswers = ref<Record<number, string>>({});
+const examSubmitted = ref(false);
+
+// Flashcard State
+const flashcardQuestion = ref<Question | null>(null);
+const flashcardAnswered = ref(false);
+
+// Study Mode Answers (per session/view)
+// Store study answers per task: { taskId: { questionId: answer } }
+const studyAnswers = ref<Record<string, Record<number, string>>>({});
 
 // Computed
 const currentTaskTitle = computed(() => {
   if (currentTab.value === 'exam') return 'Examen Oficial (Simulación)';
   if (currentTab.value === 'favorites') return 'Mis Preguntas Favoritas';
+  if (currentTab.value === 'cards') return 'Modo Tarjetas (Aleatorio)';
   return tasks[parseInt(currentTab.value)]?.title || '';
 });
 
@@ -40,6 +52,8 @@ const questionsToShow = computed(() => {
 
   if (currentTab.value === 'exam') {
     questions = examQuestions.value;
+  } else if (currentTab.value === 'cards') {
+    questions = flashcardQuestion.value ? [flashcardQuestion.value] : [];
   } else if (currentTab.value === 'favorites') {
     // Gather all questions
     const allQuestions = Object.values(tasks).flatMap(t => t.questions);
@@ -48,7 +62,7 @@ const questionsToShow = computed(() => {
     questions = tasks[parseInt(currentTab.value)]?.questions || [];
   }
 
-  if (searchQuery.value && currentTab.value !== 'exam') {
+  if (searchQuery.value && currentTab.value !== 'exam' && currentTab.value !== 'cards') {
     const query = searchQuery.value.toLowerCase();
     questions = questions.filter(q => 
       q.q.toLowerCase().includes(query) || 
@@ -90,7 +104,6 @@ const generateExam = () => {
     if (!task) return;
 
     // Smart Selection: Prioritize unseen or incorrect questions
-    // Weight: Unseen (3), Incorrect (2), Correct (1)
     const weightedQuestions = task.questions.map(q => {
       const stats = progress.value.questionHistory[q.id];
       let weight = 3; // Default (Unseen)
@@ -110,9 +123,6 @@ const generateExam = () => {
     selectedQuestions.push(...weightedQuestions.slice(0, count).map(wq => wq.q));
   });
 
-  // Shuffle final selection to mix tasks (optional, but requested order was by task, so we keep order)
-  // Actually, user requested "ordered by task", so we append in order.
-
   // Reset state
   examQuestions.value = selectedQuestions;
   examAnswers.value = {};
@@ -122,37 +132,62 @@ const generateExam = () => {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
+const generateFlashcard = () => {
+  const allQuestions = Object.values(tasks).flatMap(t => t.questions);
+  if (allQuestions.length === 0) return;
+
+  // Smart selection: prioritize unseen or incorrect
+  const pool = [...allQuestions].sort((a, b) => {
+    const statsA = getQuestionStats(a.id);
+    const statsB = getQuestionStats(b.id);
+    
+    // Priority: Unseen (seen=0) > Incorrect (incorrect > 0) > Seen
+    const scoreA = statsA.seen === 0 ? 0 : (statsA.incorrect > 0 ? 1 : 2);
+    const scoreB = statsB.seen === 0 ? 0 : (statsB.incorrect > 0 ? 1 : 2);
+    
+    if (scoreA !== scoreB) return scoreA - scoreB;
+    return Math.random() - 0.5; // Random within same priority
+  });
+
+  flashcardQuestion.value = pool[0] || null;
+  flashcardAnswered.value = false;
+  
+  // Clear previous answer for this specific question in studyAnswers if we want it to be fresh
+  if (studyAnswers.value['cards'] && pool[0]) {
+    delete studyAnswers.value['cards'][pool[0].id];
+  }
+};
+
 const handleAnswer = (questionId: number, answer: string) => {
   if (currentTab.value === 'exam') {
     if (!examSubmitted.value) {
       examAnswers.value = { ...examAnswers.value, [questionId]: answer };
     }
   } else {
-    // Study mode
+    // Study mode or Flashcard mode
     if (!studyAnswers.value[currentTab.value]) {
-      studyAnswers.value = {
-        ...studyAnswers.value,
-        [currentTab.value]: {}
-      };
+      studyAnswers.value[currentTab.value] = {};
     }
     
-    const currentTaskAnswers = studyAnswers.value[currentTab.value] || {};
-    // Only record if not already answered correctly (to avoid spamming stats)
-    // Or just record every interaction. Let's record every first attempt in a session?
-    // User wants to track errors.
+    const currentTaskAnswers = studyAnswers.value[currentTab.value]!;
     
+    if (currentTab.value === 'cards') {
+      flashcardAnswered.value = true;
+    }
+
     // Check if this is a new answer for this session/view
     if (!currentTaskAnswers[questionId]) {
        // Find question to check correctness
        const taskId = parseInt(currentTab.value);
        const question = !isNaN(taskId) ? tasks[taskId]?.questions.find(q => q.id === questionId) : undefined;
        
-       // For favorites tab, we need to search in all tasks
-       if (currentTab.value === 'favorites' && !question) {
+       // For favorites/cards tab, we need to search in all tasks
+       if ((currentTab.value === 'favorites' || currentTab.value === 'cards') && !question) {
           const allQuestions = Object.values(tasks).flatMap(t => t.questions);
           const found = allQuestions.find(q => q.id === questionId);
-          if (found && answer === found.a) {
-             recordQuestionInteraction(questionId, true);
+          if (found) {
+             const isCorrect = answer === found.a;
+             recordQuestionInteraction(questionId, isCorrect);
           }
        } else if (question) {
          const isCorrect = answer === question.a;
@@ -161,12 +196,8 @@ const handleAnswer = (questionId: number, answer: string) => {
     }
 
     currentTaskAnswers[questionId] = answer;
-    studyAnswers.value[currentTab.value] = currentTaskAnswers;
   }
 };
-
-// Store study answers per task: { taskId: { questionId: answer } }
-const studyAnswers = ref<Record<string, Record<number, string>>>({});
 
 const getSelectedAnswer = (questionId: number) => {
   if (currentTab.value === 'exam') {
@@ -208,68 +239,78 @@ const changeTab = (id: string) => {
   window.scrollTo({ top: 0, behavior: 'smooth' });
   if (id === 'exam' && examQuestions.value.length === 0) {
     generateExam();
+  } else if (id === 'cards' && !flashcardQuestion.value) {
+    generateFlashcard();
   }
 };
 
 // Watchers
 watch(currentTab, (newTab) => {
-  if (newTab === 'exam') {
+  if (newTab === 'exam' || newTab === 'cards') {
     mobileSearchVisible.value = false;
   }
 });
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-50 font-sans text-slate-600">
+  <div class="min-h-screen bg-slate-50 font-sans text-slate-900">
     <!-- Header -->
-    <header class="bg-gradient-to-r from-red-600 via-yellow-500 to-red-600 text-white shadow-lg relative overflow-hidden">
-      <div class="absolute inset-0 bg-black/10"></div>
-      <div class="max-w-4xl mx-auto px-4 py-8 relative z-10">
-        <div class="flex flex-col md:flex-row justify-between items-center gap-6">
-          <div class="text-center md:text-left">
-            <h1 class="text-3xl md:text-4xl font-bold mb-2 tracking-tight">CCSE 2026</h1>
-            <p class="text-red-50 font-medium opacity-90">Preparación para la Nacionalidad Española</p>
+    <header class="bg-gradient-to-r from-red-600 to-red-700 text-white shadow-xl sticky top-0 z-50">
+      <div class="max-w-5xl mx-auto px-4 py-4 md:py-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <div class="bg-yellow-400 p-2 rounded-lg shadow-inner">
+              <svg class="w-8 h-8 text-red-700" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/>
+              </svg>
+            </div>
+            <div>
+              <h1 class="text-2xl md:text-3xl font-black tracking-tighter uppercase">CCSE <span class="text-yellow-400">2026</span></h1>
+              <p class="text-red-50 font-medium opacity-90">Preparación para la Nacionalidad Española</p>
+            </div>
           </div>
           
-          <!-- Stats Button -->
-          <button 
-            @click="showStatsModal = true"
-            class="p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors text-white flex items-center gap-2 px-4"
-            title="Ver Estadísticas"
-          >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-            </svg>
-            <span class="hidden md:inline font-medium">Estadísticas</span>
-          </button>
-
-          <!-- Search Bar (Desktop) -->
-          <div v-if="currentTab !== 'exam'" class="hidden md:block w-full md:w-auto relative group">
-            <input 
-              v-model="searchQuery"
-              type="text" 
-              placeholder="Buscar pregunta..." 
-              class="w-80 px-4 py-2.5 rounded-full text-slate-700 bg-white/95 border-2 border-transparent focus:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 shadow-lg transition-all pl-10"
+          <div class="flex items-center gap-3">
+            <!-- Stats Button -->
+            <button 
+              @click="showStatsModal = true"
+              class="p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors text-white flex items-center gap-2 px-4 cursor-pointer"
+              title="Ver Estadísticas"
             >
-            <svg class="w-5 h-5 text-slate-400 absolute left-3.5 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-            </svg>
-          </div>
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+              </svg>
+              <span class="hidden md:inline font-medium">Estadísticas</span>
+            </button>
 
-          <!-- Mobile Search Toggle -->
-          <button 
-            v-if="currentTab !== 'exam'"
-            @click="mobileSearchVisible = !mobileSearchVisible"
-            class="md:hidden p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors"
-          >
-            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-            </svg>
-          </button>
+            <!-- Search Bar (Desktop) -->
+            <div v-if="currentTab !== 'exam' && currentTab !== 'cards'" class="hidden md:block w-full md:w-auto relative group">
+              <input 
+                v-model="searchQuery"
+                type="text" 
+                placeholder="Buscar pregunta..." 
+                class="w-80 px-4 py-2.5 rounded-full text-slate-700 bg-white/95 border-2 border-transparent focus:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 shadow-lg transition-all pl-10"
+              >
+              <svg class="w-5 h-5 text-slate-400 absolute left-3.5 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+              </svg>
+            </div>
+
+            <!-- Mobile Search Toggle -->
+            <button 
+              v-if="currentTab !== 'exam' && currentTab !== 'cards'"
+              @click="mobileSearchVisible = !mobileSearchVisible"
+              class="md:hidden p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors cursor-pointer"
+            >
+              <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+              </svg>
+            </button>
+          </div>
         </div>
 
         <!-- Mobile Search Bar -->
-        <div v-if="mobileSearchVisible && currentTab !== 'exam'" class="mt-4 md:hidden animate-fade-in">
+        <div v-if="mobileSearchVisible && currentTab !== 'exam' && currentTab !== 'cards'" class="mt-4 md:hidden animate-fade-in">
           <input 
             v-model="searchQuery"
             type="text" 
@@ -284,7 +325,7 @@ watch(currentTab, (newTab) => {
     <NavBar :current-tab="currentTab" :tabs="tabs" @change-tab="changeTab" />
 
     <!-- Main Content -->
-    <main class="max-w-3xl mx-auto px-4 pb-20">
+    <main class="max-w-4xl mx-auto px-4 pb-20">
       
       <!-- Exam Header / Progress -->
       <div v-if="currentTab === 'exam'" class="mb-6">
@@ -293,7 +334,7 @@ watch(currentTab, (newTab) => {
           <h2 class="text-2xl font-bold text-slate-800">Examen Oficial</h2>
           <button 
             @click="generateExam" 
-            class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 hover:text-red-600 transition-colors text-sm font-medium flex items-center gap-2 shadow-sm"
+            class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 hover:text-red-600 transition-colors text-sm font-medium flex items-center gap-2 shadow-sm cursor-pointer"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
@@ -313,7 +354,7 @@ watch(currentTab, (newTab) => {
               <button 
                 @click="evaluateExam"
                 :disabled="examProgress.answeredCount === 0"
-                class="px-6 py-2 bg-gradient-to-r from-red-600 to-yellow-500 hover:from-red-700 hover:to-yellow-600 text-white font-bold rounded-lg transition-all shadow-sm transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                class="px-6 py-2 bg-gradient-to-r from-red-600 to-yellow-500 hover:from-red-700 hover:to-yellow-600 text-white font-bold rounded-lg transition-all shadow-sm transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 Evaluar
               </button>
@@ -337,8 +378,20 @@ watch(currentTab, (newTab) => {
       </div>
 
       <!-- Task Title Header (Study Mode) -->
-      <div v-if="currentTab !== 'exam' && questionsToShow.length > 0" class="mb-6 bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+      <div v-if="currentTab !== 'exam' && questionsToShow.length > 0" class="mb-6 bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex justify-between items-center">
         <h2 class="text-lg font-semibold text-yellow-900">{{ currentTaskTitle }}</h2>
+        
+        <!-- Next Button for Flashcard Mode -->
+        <button 
+          v-if="currentTab === 'cards' && flashcardAnswered"
+          @click="generateFlashcard"
+          class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-all shadow-md transform hover:scale-105 flex items-center gap-2 cursor-pointer animate-fade-in"
+        >
+          Siguiente
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+          </svg>
+        </button>
       </div>
 
       <!-- Questions List -->

@@ -128,7 +128,7 @@ const handleClick = (letter: string) => {
           v-for="(option, index) in question.options"
           :key="index"
           @click="handleClick(letters[index] || '')"
-          :class="getOptionClass(letters[index] || '')"
+          :class="[getOptionClass(letters[index] || ''), (!isExamMode && !!selectedAnswer) || (isExamMode && showFeedback) ? '' : 'cursor-pointer']"
           :disabled="(!isExamMode && !!selectedAnswer) || (isExamMode && showFeedback)"
           class="py-2 px-3"
         >

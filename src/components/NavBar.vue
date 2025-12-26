@@ -17,7 +17,7 @@ const emit = defineEmits<{
           v-for="tab in tabs"
           :key="tab.id"
           @click="emit('change-tab', tab.id)"
-          class="whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200"
+          class="whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 cursor-pointer"
           :class="[
             currentTab === tab.id
               ? 'bg-red-600 text-white shadow-md transform scale-105'
