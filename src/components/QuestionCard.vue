@@ -9,6 +9,7 @@ const props = defineProps<{
   showFeedback: boolean;
   showExplanation: boolean;
   isExamMode?: boolean;
+  number?: number;
 }>();
 
 const emit = defineEmits<{
@@ -106,7 +107,10 @@ const handleClick = (letter: string) => {
   <div :id="`q-${question.id}`" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden transition-all hover:shadow-md">
     <!-- Header -->
     <div class="bg-slate-50 px-4 py-2 border-b border-slate-100 flex justify-between items-center">
-      <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Pregunta {{ question.id }}</span>
+      <div class="flex items-center gap-2">
+        <span v-if="number" class="bg-slate-800 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">#{{ number }}</span>
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Pregunta {{ question.id }}</span>
+      </div>
       <button 
         @click.stop="toggleFavorite(question.id)" 
         class="transition-colors focus:outline-none cursor-pointer"

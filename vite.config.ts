@@ -18,6 +18,8 @@ export default defineConfig({
         theme_color: '#dc2626',
         background_color: '#ffffff',
         display: 'standalone',
+        start_url: '/',
+        id: '/',
         icons: [
           {
             src: 'pwa-192x192.png',
@@ -36,6 +38,12 @@ export default defineConfig({
             purpose: 'any maskable'
           }
         ]
+      },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true
       }
     })
   ],

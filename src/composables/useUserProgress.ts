@@ -1,4 +1,7 @@
 import { ref, watch } from 'vue';
+import { auth, db } from '../firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 interface UserProgress {
     stats: {
@@ -30,11 +33,40 @@ const defaultProgress: UserProgress = {
 // Global state
 const stored = localStorage.getItem(STORAGE_KEY);
 const progress = ref<UserProgress>(stored ? JSON.parse(stored) : defaultProgress);
+const currentUser = ref<User | null>(null);
+const isLoading = ref(true);
 
-// Watch for changes and save to localStorage
+// Watch for changes and save to localStorage (always)
 watch(progress, (newVal) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newVal));
+
+    // Also save to Firestore if logged in
+    if (currentUser.value) {
+        const userDoc = doc(db, 'users', currentUser.value.uid);
+        setDoc(userDoc, newVal, { merge: true });
+    }
 }, { deep: true });
+
+// Firebase Auth Listener
+onAuthStateChanged(auth, async (user) => {
+    currentUser.value = user;
+    if (user) {
+        // Logged in: Fetch from Firestore
+        const userDoc = doc(db, 'users', user.uid);
+        const docSnap = await getDoc(userDoc);
+
+        if (docSnap.exists()) {
+            // Merge or overwrite? User said "instead of local storage", so let's overwrite local with remote
+            // But maybe merge favorites to be safe?
+            const remoteData = docSnap.data() as UserProgress;
+            progress.value = remoteData;
+        } else {
+            // New user: Save current local progress to Firestore
+            await setDoc(userDoc, progress.value);
+        }
+    }
+    isLoading.value = false;
+});
 
 export function useUserProgress() {
     // Actions
@@ -79,6 +111,8 @@ export function useUserProgress() {
 
     return {
         progress,
+        currentUser,
+        isLoading,
         toggleFavorite,
         isFavorite,
         recordExamResult,

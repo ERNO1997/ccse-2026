@@ -4,9 +4,14 @@ import { tasks } from './data/questions';
 import type { Question } from './types';
 import QuestionCard from './components/QuestionCard.vue';
 import NavBar from './components/NavBar.vue';
+import { signInWithPopup, signOut } from 'firebase/auth';
+import { auth, googleProvider } from './firebase';
 import { useUserProgress } from './composables/useUserProgress';
 
-const { progress, recordExamResult, recordQuestionInteraction, getQuestionStats, resetProgress } = useUserProgress();
+const { progress, currentUser, isLoading, recordExamResult, recordQuestionInteraction, getQuestionStats, resetProgress } = useUserProgress();
+
+const handleLogin = () => signInWithPopup(auth, googleProvider);
+const handleLogout = () => signOut(auth);
 
 // Tabs Configuration
 const tabs = [
@@ -34,6 +39,11 @@ const examSubmitted = ref(false);
 // Flashcard State
 const flashcardQuestion = ref<Question | null>(null);
 const flashcardAnswered = ref(false);
+const flashcardSessionStats = ref({
+  answered: 0,
+  correct: 0,
+  incorrect: 0
+});
 
 // Study Mode Answers (per session/view)
 // Store study answers per task: { taskId: { questionId: answer } }
@@ -173,6 +183,7 @@ const handleAnswer = (questionId: number, answer: string) => {
     
     if (currentTab.value === 'cards') {
       flashcardAnswered.value = true;
+      flashcardSessionStats.value.answered++;
     }
 
     // Check if this is a new answer for this session/view
@@ -188,10 +199,20 @@ const handleAnswer = (questionId: number, answer: string) => {
           if (found) {
              const isCorrect = answer === found.a;
              recordQuestionInteraction(questionId, isCorrect);
+             
+             if (currentTab.value === 'cards') {
+               if (isCorrect) flashcardSessionStats.value.correct++;
+               else flashcardSessionStats.value.incorrect++;
+             }
           }
        } else if (question) {
          const isCorrect = answer === question.a;
          recordQuestionInteraction(questionId, isCorrect);
+         
+         if (currentTab.value === 'cards') {
+           if (isCorrect) flashcardSessionStats.value.correct++;
+           else flashcardSessionStats.value.incorrect++;
+         }
        }
     }
 
@@ -270,55 +291,80 @@ watch(currentTab, (newTab) => {
 <template>
   <div class="min-h-screen bg-slate-50 font-sans text-slate-900">
     <!-- Header -->
-    <header class="bg-gradient-to-r from-red-600 to-red-700 text-white shadow-xl z-40">
-      <div class="max-w-5xl mx-auto px-4 py-4 md:py-6">
+    <header class="bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg z-40">
+      <div class="max-w-5xl mx-auto px-4 py-3 md:py-4">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div class="flex items-center gap-3">
-            <div class="bg-yellow-400 p-2 rounded-lg shadow-inner">
-              <svg class="w-8 h-8 text-red-700" fill="currentColor" viewBox="0 0 24 24">
+            <div class="bg-yellow-400 p-1.5 rounded-lg shadow-inner flex-shrink-0">
+              <svg class="w-6 h-6 md:w-7 md:h-7 text-red-700" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/>
               </svg>
             </div>
-            <div>
-              <h1 class="text-2xl md:text-3xl font-black tracking-tighter uppercase">CCSE <span class="text-yellow-400">2026</span></h1>
-              <p class="text-red-50 font-medium opacity-90">Preparación para la Nacionalidad Española</p>
-              <p class="text-[10px] text-yellow-200/80 font-bold uppercase tracking-widest mt-0.5">Material de estudio no oficial • Preguntas oficiales 2026</p>
+            <div class="min-w-0">
+              <h1 class="text-xl md:text-2xl font-black tracking-tighter uppercase leading-none">CCSE <span class="text-yellow-400">2026</span></h1>
+              <p class="text-[10px] md:text-xs text-red-50 font-medium opacity-80 truncate mt-0.5">Preguntas oficiales 2026 • Material de estudio no oficial</p>
             </div>
           </div>
           
-          <div class="flex items-center gap-3">
-            <!-- Stats Button -->
-            <button 
-              @click="showStatsModal = true"
-              class="p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors text-white flex items-center gap-2 px-4 cursor-pointer"
-              title="Ver Estadísticas"
-            >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-              </svg>
-              <span class="hidden md:inline font-medium">Estadísticas</span>
-            </button>
-
+          <div class="flex items-center gap-2 md:gap-3">
             <!-- Search Bar (Desktop) -->
-            <div v-if="currentTab !== 'exam' && currentTab !== 'cards'" class="hidden md:block w-full md:w-auto relative group">
+            <div v-if="currentTab !== 'exam' && currentTab !== 'cards'" class="hidden md:block relative group">
               <input 
                 v-model="searchQuery"
                 type="text" 
-                placeholder="Buscar pregunta..." 
-                class="w-80 px-4 py-2.5 rounded-full text-slate-700 bg-white/95 border-2 border-transparent focus:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 shadow-lg transition-all pl-10"
+                placeholder="Buscar..." 
+                class="w-48 lg:w-64 px-4 py-1.5 rounded-full text-sm text-slate-700 bg-white/90 border-2 border-transparent focus:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 shadow-sm transition-all pl-9"
               >
-              <svg class="w-5 h-5 text-slate-400 absolute left-3.5 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
               </svg>
+            </div>
+
+            <div class="flex items-center gap-2 bg-white/10 p-1 rounded-xl border border-white/10">
+              <!-- Stats Button -->
+              <button 
+                @click="showStatsModal = true"
+                class="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-white flex items-center gap-2 px-3 cursor-pointer"
+                title="Ver Estadísticas"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                </svg>
+                <span class="text-xs font-bold">Stats</span>
+              </button>
+
+              <div class="w-px h-4 bg-white/20 mx-1"></div>
+
+              <!-- Auth Button -->
+              <div v-if="!isLoading" class="flex items-center">
+                <button 
+                  v-if="!currentUser"
+                  @click="handleLogin"
+                  class="flex items-center gap-2 px-3 py-1.5 hover:bg-white/10 rounded-lg transition-all text-xs font-bold cursor-pointer"
+                >
+                  <svg class="w-4 h-4" viewBox="0 0 48 48">
+                    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
+                    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
+                    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
+                    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
+                    <path fill="none" d="M0 0h48v48H0z"></path>
+                  </svg>
+                  Login
+                </button>
+                <div v-else class="flex items-center gap-2 px-2">
+                  <img :src="currentUser.photoURL || ''" class="w-6 h-6 rounded-full border border-yellow-400" alt="User">
+                  <button @click="handleLogout" class="text-[10px] font-bold text-red-100 hover:text-white underline cursor-pointer">Salir</button>
+                </div>
+              </div>
             </div>
 
             <!-- Mobile Search Toggle -->
             <button 
               v-if="currentTab !== 'exam' && currentTab !== 'cards'"
               @click="mobileSearchVisible = !mobileSearchVisible"
-              class="md:hidden p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors cursor-pointer"
+              class="md:hidden p-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors cursor-pointer border border-white/10"
             >
-              <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
               </svg>
             </button>
@@ -326,12 +372,12 @@ watch(currentTab, (newTab) => {
         </div>
 
         <!-- Mobile Search Bar -->
-        <div v-if="mobileSearchVisible && currentTab !== 'exam' && currentTab !== 'cards'" class="mt-4 md:hidden animate-fade-in">
+        <div v-if="mobileSearchVisible && currentTab !== 'exam' && currentTab !== 'cards'" class="mt-3 md:hidden animate-fade-in">
           <input 
             v-model="searchQuery"
             type="text" 
-            placeholder="Buscar pregunta..." 
-            class="w-full px-4 py-2.5 rounded-lg text-slate-700 bg-white border-2 border-transparent focus:border-yellow-400 focus:outline-none shadow-lg"
+            placeholder="Buscar..." 
+            class="w-full px-4 py-2 rounded-lg text-sm text-slate-700 bg-white border-2 border-transparent focus:border-yellow-400 focus:outline-none shadow-sm"
           >
         </div>
       </div>
@@ -359,27 +405,7 @@ watch(currentTab, (newTab) => {
           </button>
         </div>
 
-        <!-- Progress Bar (Hidden after submission) -->
-        <div v-if="!examSubmitted" class="mb-6 bg-white border-2 border-red-100 rounded-xl p-4 sticky top-20 z-40 shadow-md">
-          <div class="w-full flex flex-col gap-2">
-            <div class="flex justify-between items-center">
-              <div>
-                <span class="text-sm font-bold text-red-600 uppercase tracking-wider">Progreso del Examen</span>
-                <div class="text-2xl font-bold text-slate-900">{{ examProgress.answeredCount }} <span class="text-slate-400 text-lg">/ {{ examProgress.totalCount }}</span></div>
-              </div>
-              <button 
-                @click="evaluateExam"
-                :disabled="examProgress.answeredCount === 0"
-                class="px-6 py-2 bg-gradient-to-r from-red-600 to-yellow-500 hover:from-red-700 hover:to-yellow-600 text-white font-bold rounded-lg transition-all shadow-sm transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-              >
-                Evaluar
-              </button>
-            </div>
-            <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-              <div class="bg-gradient-to-r from-red-500 to-yellow-400 h-2.5 rounded-full transition-all duration-500" :style="{ width: `${examProgress.percentage}%` }"></div>
-            </div>
-          </div>
-        </div>
+
 
         <!-- Result Card -->
         <div v-if="examSubmitted" class="mb-8 p-6 rounded-xl border-2 text-center animate-fade-in" :class="isPassed ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'">
@@ -394,28 +420,83 @@ watch(currentTab, (newTab) => {
       </div>
 
       <!-- Task Title Header (Study Mode) -->
-      <div v-if="currentTab !== 'exam' && questionsToShow.length > 0" class="mb-6 bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex justify-between items-center">
-        <h2 class="text-lg font-semibold text-yellow-900">{{ currentTaskTitle }}</h2>
+      <div 
+        v-if="currentTab !== 'exam' && questionsToShow.length > 0" 
+        class="mb-6 rounded-xl p-4 shadow-sm border flex flex-col md:flex-row justify-between items-center gap-4 transition-colors"
+        :class="[
+          currentTab === 'cards' ? 'bg-blue-50 border-blue-100' : 
+          currentTab === 'favorites' ? 'bg-red-50 border-red-100' : 
+          'bg-yellow-50 border-yellow-100'
+        ]"
+      >
+        <div class="flex flex-col">
+          <h2 class="text-lg font-bold" :class="currentTab === 'cards' ? 'text-blue-900' : currentTab === 'favorites' ? 'text-red-900' : 'text-yellow-900'">
+            {{ currentTaskTitle }}
+          </h2>
+          <div v-if="currentTab === 'cards'" class="flex flex-wrap items-center gap-2 mt-2">
+            <div class="flex items-center gap-1.5 px-2.5 py-1 bg-white/80 text-blue-700 rounded-lg border border-blue-200 shadow-sm">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+              </svg>
+              <span class="text-[11px] font-bold uppercase tracking-tight">Vistas: {{ flashcardSessionStats.answered }}</span>
+            </div>
+            <div class="flex items-center gap-1.5 px-2.5 py-1 bg-white/80 text-green-700 rounded-lg border border-green-200 shadow-sm">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+              </svg>
+              <span class="text-[11px] font-bold uppercase tracking-tight">Aciertos: {{ flashcardSessionStats.correct }}</span>
+            </div>
+            <div class="flex items-center gap-1.5 px-2.5 py-1 bg-white/80 text-red-700 rounded-lg border border-red-200 shadow-sm">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+              <span class="text-[11px] font-bold uppercase tracking-tight">Fallos: {{ flashcardSessionStats.incorrect }}</span>
+            </div>
+          </div>
+        </div>
         
         <!-- Next Button for Flashcard Mode -->
         <button 
           v-if="currentTab === 'cards' && flashcardAnswered"
           @click="generateFlashcard"
-          class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-all shadow-md transform hover:scale-105 flex items-center gap-2 cursor-pointer animate-fade-in"
+          class="w-full md:w-auto px-6 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-lg transition-all shadow-md transform hover:scale-105 flex items-center justify-center gap-2 cursor-pointer animate-fade-in"
         >
-          Siguiente
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          Siguiente Tarjeta
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
           </svg>
         </button>
       </div>
 
+      <!-- Exam Progress Bar (Sticky) -->
+      <div v-if="currentTab === 'exam' && !examSubmitted" class="mb-6 bg-white/95 backdrop-blur-md rounded-xl p-4 sticky top-[52px] md:top-[60px] z-30 shadow-md border border-slate-200">
+        <div class="w-full flex flex-col gap-2">
+          <div class="flex justify-between items-center">
+            <div>
+              <span class="text-[10px] font-bold text-red-600 uppercase tracking-widest">Progreso del Examen</span>
+              <div class="text-xl font-black text-slate-900">{{ examProgress.answeredCount }} <span class="text-slate-400 text-sm font-medium">/ {{ examProgress.totalCount }}</span></div>
+            </div>
+            <button 
+              @click="evaluateExam"
+              :disabled="examProgress.answeredCount === 0"
+              class="px-5 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-lg transition-all shadow-md transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              Finalizar
+            </button>
+          </div>
+          <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+            <div class="bg-red-600 h-full rounded-full transition-all duration-500" :style="{ width: `${examProgress.percentage}%` }"></div>
+          </div>
+        </div>
+      </div>
+
       <!-- Questions List -->
       <div v-if="questionsToShow.length > 0" class="space-y-4">
         <QuestionCard
-          v-for="question in questionsToShow"
+          v-for="(question, index) in questionsToShow"
           :key="question.id"
           :question="question"
+          :number="currentTab === 'exam' ? index + 1 : undefined"
           :selected-answer="getSelectedAnswer(question.id)"
           :show-feedback="(currentTab !== 'exam' && !!getSelectedAnswer(question.id)) || (currentTab === 'exam' && examSubmitted)"
           :show-explanation="(currentTab !== 'exam' && !!getSelectedAnswer(question.id)) || (currentTab === 'exam' && examSubmitted)"
@@ -495,6 +576,19 @@ watch(currentTab, (newTab) => {
             <div class="bg-green-50 p-4 rounded-xl text-center">
               <div class="text-3xl font-bold text-green-600">{{ progress.stats.examsPassed }}</div>
               <div class="text-xs font-medium text-green-800 uppercase tracking-wide mt-1">Aprobados</div>
+            </div>
+          </div>
+
+          <!-- Flashcard Stats -->
+          <div class="grid grid-cols-1 gap-4">
+            <div class="bg-yellow-50 p-4 rounded-xl flex justify-between items-center">
+              <div class="text-left">
+                <div class="text-xs font-bold text-yellow-800 uppercase tracking-wider">Tarjetas Respondidas</div>
+                <div class="text-2xl font-bold text-yellow-900">{{ Object.keys(progress.questionHistory).length }} / 300</div>
+              </div>
+              <div class="w-24 bg-yellow-200 rounded-full h-2 overflow-hidden">
+                <div class="bg-yellow-600 h-full transition-all" :style="{ width: `${(Object.keys(progress.questionHistory).length / 300) * 100}%` }"></div>
+              </div>
             </div>
           </div>
 
