@@ -10,12 +10,15 @@ import { onMounted } from 'vue';
 
 const { progress, currentUser, isLoading, recordExamResult, recordQuestionInteraction, getQuestionStats, resetProgress } = useUserProgress();
 
+const APP_VERSION = '1.0.6'; // Increment this to track versions
 const deferredPrompt = ref<any>(null);
 const isInstalling = ref(false);
 const isSecure = ref(window.isSecureContext);
 
 onMounted(async () => {
-  console.log("App mounted. Secure context:", isSecure.value);
+  console.log(`App v${APP_VERSION} mounted. Secure context:`, isSecure.value);
+  alert(`App v${APP_VERSION} iniciada`); // This MUST show up if the code is new
+  
   if (!isSecure.value && !window.location.hostname.includes('localhost')) {
     console.warn("This app is running in an insecure context. Firebase Auth and PWA features may not work correctly.");
     alert("Contexto no seguro detectado. El login y PWA podrían no funcionar.");
@@ -100,6 +103,19 @@ const handleInstall = async () => {
     alert("Error al intentar instalar: " + (err.message || "Error desconocido"));
   } finally {
     isInstalling.value = false;
+  }
+};
+
+const handleForceUpdate = () => {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(registrations => {
+      for (let registration of registrations) {
+        registration.unregister();
+      }
+      window.location.reload();
+    });
+  } else {
+    window.location.reload();
   }
 };
 
@@ -660,6 +676,18 @@ watch(showStatsModal, (isOpen) => {
             </svg>
             {{ isInstalling ? 'Instalando...' : 'Instalar App' }}
           </button>
+
+          <!-- Force Update / Version -->
+          <div class="flex items-center gap-3">
+            <span class="text-[10px] font-mono text-slate-400">v{{ APP_VERSION }}</span>
+            <button 
+              @click="handleForceUpdate"
+              class="text-[10px] text-slate-400 hover:text-slate-600 underline cursor-pointer"
+              title="Forzar actualización de la App"
+            >
+              Actualizar App
+            </button>
+          </div>
         </div>
 
         <p class="text-xs text-slate-600 italic">Aviso: Este es un material de estudio independiente y no oficial. Las preguntas corresponden al temario oficial del 2026.</p>
