@@ -31,7 +31,7 @@ Una aplicación web moderna e interactiva diseñada para ayudar en la preparaci�
 
 1. **Clonar el repositorio**:
    ```bash
-   git clone https://github.com/tu-usuario/ccse-2026.git
+   git clone https://github.com/ERNO1997/ccse-2026.git
    cd ccse-2026
    ```
 
