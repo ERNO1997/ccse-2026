@@ -50,6 +50,7 @@ watch(progress, (newVal) => {
 // Firebase Auth Listener
 onAuthStateChanged(auth, async (user) => {
     console.log("Auth state changed:", user ? user.email : "null");
+    alert("Auth state changed: " + (user ? user.email : "null"));
     currentUser.value = user;
     if (user) {
         // Logged in: Fetch from Firestore

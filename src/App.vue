@@ -17,7 +17,7 @@ const isSecure = ref(window.isSecureContext);
 
 onMounted(async () => {
   console.log(`App v${APP_VERSION} mounted. Secure context:`, isSecure.value);
-  alert(`App v${APP_VERSION} iniciada`); // This MUST show up if the code is new
+  alert(`App v${APP_VERSION} iniciada en ${window.location.origin}`);
   
   if (!isSecure.value && !window.location.hostname.includes('localhost')) {
     console.warn("This app is running in an insecure context. Firebase Auth and PWA features may not work correctly.");
@@ -31,9 +31,11 @@ onMounted(async () => {
       alert("Login exitoso vía redirect: " + result.user.email);
     } else {
       console.log("No redirect result found");
+      // alert("No se encontró resultado de redirect (esto es normal si no acabas de volver de Google)");
     }
   } catch (error: any) {
     console.error("Redirect login error:", error);
+    alert("Error en getRedirectResult: " + error.code + " - " + error.message);
     if (error.code === 'auth/unauthorized-domain') {
       alert("Error de Firebase: Dominio no autorizado. Debes añadir este dominio en la consola de Firebase (Authentication > Settings > Authorized domains).");
     } else if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
