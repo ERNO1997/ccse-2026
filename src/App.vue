@@ -441,7 +441,22 @@ watch(currentTab, (newTab) => {
     <footer class="bg-slate-900 text-slate-400 py-12 mt-12">
       <div class="max-w-4xl mx-auto px-4 text-center">
         <p class="mb-4 font-bold text-slate-200">CCSE 2026 Interactive App</p>
-        <p class="text-sm text-slate-500 mb-2">Diseñado para ayudar en la preparación de la prueba de conocimientos constitucionales y socioculturales de España.</p>
+        <p class="text-sm text-slate-500 mb-4">Diseñado para ayudar en la preparación de la prueba de conocimientos constitucionales y socioculturales de España.</p>
+        
+        <div class="flex flex-col md:flex-row items-center justify-center gap-4 mb-6">
+          <a 
+            href="https://examenes.cervantes.es/es/ccse/preparar-prueba" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg transition-colors text-sm border border-slate-700 cursor-pointer"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+            </svg>
+            Documentación Oficial (Cervantes)
+          </a>
+        </div>
+
         <p class="text-xs text-slate-600 italic">Aviso: Este es un material de estudio independiente y no oficial. Las preguntas corresponden al temario oficial del 2026.</p>
       </div>
     </footer>
