@@ -4,14 +4,58 @@ import { tasks } from './data/questions';
 import type { Question } from './types';
 import QuestionCard from './components/QuestionCard.vue';
 import NavBar from './components/NavBar.vue';
-import { signInWithPopup, signOut } from 'firebase/auth';
-import { auth, googleProvider } from './firebase';
+import { auth, googleProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from './firebase';
 import { useUserProgress } from './composables/useUserProgress';
+import { onMounted } from 'vue';
 
 const { progress, currentUser, isLoading, recordExamResult, recordQuestionInteraction, getQuestionStats, resetProgress } = useUserProgress();
 
-const handleLogin = () => signInWithPopup(auth, googleProvider);
+const deferredPrompt = ref<any>(null);
+const isInstalling = ref(false);
+
+onMounted(async () => {
+  // Handle Redirect Result
+  try {
+    await getRedirectResult(auth);
+  } catch (error) {
+    console.error("Redirect login error:", error);
+  }
+
+  // Handle PWA Install Prompt
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt.value = e;
+  });
+
+  window.addEventListener('appinstalled', () => {
+    deferredPrompt.value = null;
+    isInstalling.value = false;
+  });
+});
+
+const handleLogin = () => {
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  if (isMobile) {
+    signInWithRedirect(auth, googleProvider);
+  } else {
+    signInWithPopup(auth, googleProvider);
+  }
+};
+
 const handleLogout = () => signOut(auth);
+
+const handleInstall = async () => {
+  if (!deferredPrompt.value) return;
+  
+  isInstalling.value = true;
+  deferredPrompt.value.prompt();
+  
+  const { outcome } = await deferredPrompt.value.userChoice;
+  if (outcome === 'accepted') {
+    deferredPrompt.value = null;
+  }
+  isInstalling.value = false;
+};
 
 // Tabs Configuration
 const tabs = [
@@ -549,6 +593,19 @@ watch(currentTab, (newTab) => {
             GitHub Repo
             <span class="ml-1 text-yellow-400 group-hover:scale-125 transition-transform">★</span>
           </a>
+
+          <!-- Install PWA Button -->
+          <button 
+            v-if="deferredPrompt"
+            @click="handleInstall"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all text-sm font-bold shadow-lg cursor-pointer"
+            :disabled="isInstalling"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+            </svg>
+            {{ isInstalling ? 'Instalando...' : 'Instalar App' }}
+          </button>
         </div>
 
         <p class="text-xs text-slate-600 italic">Aviso: Este es un material de estudio independiente y no oficial. Las preguntas corresponden al temario oficial del 2026.</p>
