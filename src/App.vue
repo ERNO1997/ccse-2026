@@ -280,7 +280,7 @@ watch(currentTab, (newTab) => {
               </svg>
             </div>
             <div>
-              <h1 class="text-2xl md:text-3xl font-black tracking-tighter uppercase">CCSE <span class="text-yellow-400">2026</span></h1>
+              <h1 class="text-2xl md:text-3xl font-black tracking-tighter uppercase">CCSE <span class="text-yellow-400">2026</span> <span class="text-xs font-normal lowercase opacity-50 ml-1">v1.0.0</span></h1>
               <p class="text-red-50 font-medium opacity-90">Preparación para la Nacionalidad Española</p>
               <p class="text-[10px] text-yellow-200/80 font-bold uppercase tracking-widest mt-0.5">Material de estudio no oficial • Preguntas oficiales 2026</p>
             </div>

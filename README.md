@@ -3,6 +3,7 @@
 Una aplicación web moderna e interactiva diseñada para ayudar en la preparación de la prueba de **Conocimientos Constitucionales y Socioculturales de España (CCSE)** para el año 2026.
 
 ![CCSE 2026 Preview](https://img.shields.io/badge/CCSE-2026-red?style=for-the-badge&logo=spain&logoColor=yellow)
+![Version](https://img.shields.io/badge/version-1.0.0-blue?style=for-the-badge)
 ![Vue 3](https://img.shields.io/badge/Vue%203-4FC08D?style=for-the-badge&logo=vue.js&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-06B6D4?style=for-the-badge&logo=tailwind-css&logoColor=white)
